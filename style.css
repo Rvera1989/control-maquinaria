@@ -111,3 +111,9 @@ table th, table td {
   justify-content: center;
   align-items: center;
 }
+.hidden {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
