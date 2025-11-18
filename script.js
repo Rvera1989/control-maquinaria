@@ -3,7 +3,7 @@
    - Claves usadas:
      cm_machines  -> array [{id, name}]
      cm_records   -> array [{id, fecha, machineId, tipo, obs, horas, fotoDataUrl, meta...}]
-     cm_pin       -> string "1234" por defecto
+     cm_pin       -> string "1030" (fijo para todos los dispositivos)
 */
 
 (() => {
@@ -29,7 +29,9 @@
   // Initialize defaults
   if (!localStorage.getItem(KEY_M)) save(KEY_M, []);
   if (!localStorage.getItem(KEY_R)) save(KEY_R, []);
-  if (!localStorage.getItem(KEY_PIN)) save(KEY_PIN, '1234');
+
+  // 🔒 PIN FIJO: siempre forzar a 1030 en todos los dispositivos
+  save(KEY_PIN, '1030');
 
   // ---------- Elements ----------
   const lockScreen = qs('#lockScreen');
@@ -71,7 +73,6 @@
 
   // Machines page
   const machinesPage = qs('#machinesPage');
-  const openHomeBtn = qs('#openHome');
   const listaMaquinas = qs('#listaMaquinas');
   const buscarMaquina = qs('#buscarMaquina');
   const addMachineFromPage = qs('#addMachineFromPage');
@@ -90,23 +91,16 @@
   let editingMachineId = null;
   let editingRecordId = null;
 
-  // ---------- UI helpers ----------
+  // ---------- UI Helpers ----------
   const show = el => el.classList.remove('hidden');
   const hide = el => el.classList.add('hidden');
 
-  const showApp = () => {
-    hide(lockScreen);
-    show(app);
-  };
+  const showApp = () => { hide(lockScreen); show(app); };
+  const showLock = () => { show(lockScreen); hide(app); };
 
-  const showLock = () => {
-    show(lockScreen);
-    hide(app);
-  };
-
-  // ---------- PIN / lock ----------
+  // ---------- PIN LOGIN ----------
   unlockBtn.addEventListener('click', () => {
-    const pin = localStorage.getItem(KEY_PIN);
+    const pin = localStorage.getItem(KEY_PIN); // siempre 1030
     if (pinInput.value === pin) {
       pinInput.value = '';
       showApp();
@@ -120,9 +114,9 @@
     if (!confirm('¿Seguro que deseas borrar TODOS los datos? Esto no se puede deshacer.')) return;
     localStorage.removeItem(KEY_M);
     localStorage.removeItem(KEY_R);
-    // keep pin
     machines = []; records = [];
-    save(KEY_M, machines); save(KEY_R, records);
+    save(KEY_M, machines); 
+    save(KEY_R, records);
     alert('Datos borrados.');
     renderAll();
   });
@@ -132,12 +126,13 @@
     hide(machinesPage);
     show(qs('#homePage'));
   });
+
   openMachinesPage.addEventListener('click', () => {
     show(machinesPage);
-    show(qs('#homePage')); // keep content visible (page is separate)
     hide(qs('#homePage'));
     renderMachinesList();
   });
+
   addMachineBtn.addEventListener('click', () => openAddMachineModal());
   addMachineFromPage.addEventListener('click', () => openAddMachineModal());
   closeMachinesPage.addEventListener('click', () => {
@@ -170,299 +165,5 @@
   saveMachineBtn.addEventListener('click', () => {
     const name = newMachineName.value.trim();
     if (!name) { alert('Ingrese un nombre válido'); return; }
-    if (editingMachineId) {
-      machines = machines.map(m => m.id === editingMachineId ? {...m, name} : m);
-      alert('Maquinaria actualizada');
-    } else {
-      machines.push({ id: uid(), name });
-      alert('Maquinaria agregada');
-    }
-    save(KEY_M, machines);
-    newMachineName.value = '';
-    hide(machineModal);
-    renderMachinesList();
-    populateMachinesSelect();
-  });
 
-  function renderMachinesList(filter = '') {
-    listaMaquinas.innerHTML = '';
-    const list = machines.filter(m => m.name.toLowerCase().includes(filter.toLowerCase()));
-    if (list.length === 0) {
-      listaMaquinas.innerHTML = '<div class="muted small">No hay maquinarias. Agrega una.</div>';
-      return;
-    }
-    list.forEach(m => {
-      const div = document.createElement('div');
-      div.className = 'machine-item';
-      div.innerHTML = `
-        <div><strong>${escapeHtml(m.name)}</strong></div>
-        <div class="row gap">
-          <button class="btn" data-edit="${m.id}">Editar</button>
-          <button class="btn danger" data-delete="${m.id}">Eliminar</button>
-        </div>
-      `;
-      listaMaquinas.appendChild(div);
-    });
-
-    qsa('button[data-edit]', listaMaquinas).forEach(b => {
-      b.addEventListener('click', () => {
-        const id = b.getAttribute('data-edit');
-        const mach = machines.find(x => x.id === id);
-        if (mach) openAddMachineModal(mach.name, mach.id);
-      });
-    });
-
-    qsa('button[data-delete]', listaMaquinas).forEach(b => {
-      b.addEventListener('click', () => {
-        const id = b.getAttribute('data-delete');
-        if (!confirm('Eliminar maquinaria y sus registros relacionados?')) return;
-        machines = machines.filter(x => x.id !== id);
-        // also remove records for that machine
-        records = records.filter(r => r.machineId !== id);
-        save(KEY_M, machines); save(KEY_R, records);
-        renderMachinesList();
-        populateMachinesSelect();
-        renderRecordsTable(records);
-      });
-    });
-  }
-
-  buscarMaquina.addEventListener('input', () => renderMachinesList(buscarMaquina.value.trim()));
-
-  function populateMachinesSelect() {
-    maquinariaSel.innerHTML = '<option value="">-- Seleccionar --</option>';
-    machines.forEach(m => {
-      const opt = document.createElement('option');
-      opt.value = m.id;
-      opt.textContent = m.name;
-      maquinariaSel.appendChild(opt);
-    });
-  }
-
-  // ---------- Records (Registros) ----------
-  // Calculate hours from times: (finM-inicioM) + (finT-inicioT)
-  function timeToMinutes(t) {
-    if (!t) return null;
-    const [hh, mm] = t.split(':').map(Number);
-    return hh * 60 + mm;
-  }
-  function calcHoras() {
-    const a = timeToMinutes(inicioM.value);
-    const b = timeToMinutes(finM.value);
-    const c = timeToMinutes(inicioT.value);
-    const d = timeToMinutes(finT.value);
-    let total = 0;
-    if (a !== null && b !== null && b > a) total += (b - a);
-    if (c !== null && d !== null && d > c) total += (d - c);
-    const hours = +(total / 60).toFixed(2);
-    horasDisplay.textContent = hours.toFixed(2);
-    return hours;
-  }
-
-  [inicioM, finM, inicioT, finT].forEach(i => i.addEventListener('change', calcHoras));
-
-  // Image to dataURL (small compression)
-  function imageFileToDataUrl(file, maxWidth = 1200, maxHeight = 1200) {
-    return new Promise((res, rej) => {
-      if (!file) return res(null);
-      const reader = new FileReader();
-      reader.onload = e => {
-        const img = new Image();
-        img.onload = () => {
-          // downscale
-          let w = img.width, h = img.height;
-          const ratio = Math.min(1, maxWidth / w, maxHeight / h);
-          w = Math.round(w * ratio); h = Math.round(h * ratio);
-          const canvas = document.createElement('canvas');
-          canvas.width = w; canvas.height = h;
-          const ctx = canvas.getContext('2d');
-          ctx.drawImage(img, 0, 0, w, h);
-          const dataUrl = canvas.toDataURL('image/jpeg', 0.75);
-          res(dataUrl);
-        };
-        img.onerror = () => res(null);
-        img.src = e.target.result;
-      };
-      reader.onerror = () => res(null);
-      reader.readAsDataURL(file);
-    });
-  }
-
-  registroForm.addEventListener('submit', async (ev) => {
-    ev.preventDefault();
-    const fecha = fechaEl.value;
-    const machineId = maquinariaSel.value;
-    if (!fecha || !machineId) { alert('Seleccione fecha y maquinaria'); return; }
-    const tipo = tipoEl.value.trim();
-    const obs = obsEl.value.trim();
-    const horas = calcHoras();
-    const fotoFile = fotoEl.files && fotoEl.files[0] ? fotoEl.files[0] : null;
-    const fotoDataUrl = await imageFileToDataUrl(fotoFile);
-
-    if (editingRecordId) {
-      records = records.map(r => r.id === editingRecordId ? {
-        ...r, fecha, machineId, tipo, obs, horas, fotoDataUrl, updatedAt: new Date().toISOString()
-      } : r);
-      editingRecordId = null;
-    } else {
-      const rec = {
-        id: uid(),
-        fecha,
-        machineId,
-        tipo,
-        obs,
-        horas,
-        fotoDataUrl,
-        createdAt: new Date().toISOString()
-      };
-      records.push(rec);
-    }
-
-    save(KEY_R, records);
-    registroForm.reset();
-    horasDisplay.textContent = '0.00';
-    populateMachinesSelect();
-    renderRecordsTable(records);
-    alert('Registro guardado');
-  });
-
-  resetFormBtn.addEventListener('click', () => {
-    registroForm.reset();
-    horasDisplay.textContent = '0.00';
-    editingRecordId = null;
-  });
-
-  // ---------- Render records ----------
-  function renderRecordsTable(list) {
-    tablaBody.innerHTML = '';
-    if (!list || list.length === 0) {
-      show(noRecords);
-      return;
-    }
-    hide(noRecords);
-    // sort by date desc
-    const sorted = [...list].sort((a,b) => (b.fecha || '').localeCompare(a.fecha || '') || (b.createdAt||'').localeCompare(a.createdAt||''));
-    sorted.forEach(r => {
-      const tr = document.createElement('tr');
-      const m = machines.find(mm => mm.id === r.machineId);
-      tr.innerHTML = `
-        <td>${escapeHtml(r.fecha)}</td>
-        <td>${escapeHtml(m ? m.name : '—')}</td>
-        <td>${escapeHtml(r.tipo || '')}</td>
-        <td>${escapeHtml(r.obs || '')}</td>
-        <td>${(typeof r.horas === 'number') ? r.horas.toFixed(2) : '0.00'}</td>
-        <td>${r.fotoDataUrl ? `<img class="thumb" src="${r.fotoDataUrl}" />` : ''}</td>
-        <td>
-          <button class="btn" data-edit="${r.id}">Editar</button>
-          <button class="btn danger" data-delete="${r.id}">Eliminar</button>
-        </td>
-      `;
-      tablaBody.appendChild(tr);
-    });
-
-    qsa('button[data-edit]', tablaBody).forEach(b => {
-      b.addEventListener('click', () => {
-        const id = b.getAttribute('data-edit');
-        const rec = records.find(x => x.id === id);
-        if (!rec) return;
-        editingRecordId = id;
-        // fill form
-        fechaEl.value = rec.fecha;
-        maquinariaSel.value = rec.machineId;
-        tipoEl.value = rec.tipo || '';
-        obsEl.value = rec.obs || '';
-        horasDisplay.textContent = (typeof rec.horas === 'number') ? rec.horas.toFixed(2) : '0.00';
-        // Note: foto cannot be filled into file input programmatically; keep existing fotoDataUrl and when saving it will be used
-        // set times blank (we don't store start/end times here)
-        inicioM.value = ''; finM.value = ''; inicioT.value = ''; finT.value = '';
-        scrollTo(0,0);
-      });
-    });
-
-    qsa('button[data-delete]', tablaBody).forEach(b => {
-      b.addEventListener('click', () => {
-        const id = b.getAttribute('data-delete');
-        if (!confirm('Eliminar registro?')) return;
-        records = records.filter(x => x.id !== id);
-        save(KEY_R, records);
-        renderRecordsTable(records);
-      });
-    });
-  }
-
-  // ---------- Search / Filter ----------
-  searchExactBtn.addEventListener('click', () => {
-    const d = searchDateExact.value;
-    if (!d) { alert('Selecciona una fecha'); return; }
-    const res = records.filter(r => r.fecha === d);
-    renderRecordsTable(res);
-  });
-  searchRangeBtn.addEventListener('click', () => {
-    const from = searchFrom.value; const to = searchTo.value;
-    if (!from || !to) { alert('Selecciona rango (desde y hasta)'); return; }
-    if (from > to) { alert('Rango inválido'); return; }
-    const res = records.filter(r => (r.fecha >= from && r.fecha <= to));
-    renderRecordsTable(res);
-  });
-  clearSearchBtn.addEventListener('click', () => {
-    renderRecordsTable(records);
-    searchDateExact.value = ''; searchFrom.value = ''; searchTo.value = '';
-  });
-
-  // ---------- CSV export ----------
-  function exportCSV(list, filename = 'export.csv') {
-    if (!list || list.length === 0) {
-      alert('No hay registros para exportar');
-      return;
-    }
-    const header = ['Fecha','Maquinaria','Tipo','Observaciones','Horas','FotoDataUrl','Creado'];
-    const rows = list.map(r => {
-      const m = machines.find(mm => mm.id === r.machineId);
-      return [
-        r.fecha || '',
-        m ? m.name : '',
-        r.tipo || '',
-        r.obs || '',
-        (typeof r.horas === 'number') ? r.horas.toFixed(2) : '',
-        r.fotoDataUrl ? r.fotoDataUrl : '',
-        r.createdAt || ''
-      ].map(cell => `"${String(cell).replace(/"/g,'""')}"`).join(',');
-    });
-    const csv = [header.join(','), ...rows].join('\n');
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = filename;
-    a.click();
-    URL.revokeObjectURL(url);
-  }
-
-  // ---------- Utilities ----------
-  function escapeHtml(s = '') {
-    return String(s).replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":"&#39;"}[ch]));
-  }
-
-  // ---------- Initial render ----------
-  function renderAll() {
-    machines = load(KEY_M, []);
-    records = load(KEY_R, []);
-    populateMachinesSelect();
-    renderRecordsTable(records);
-    renderMachinesList();
-  }
-
-  // Show lock screen by default
-  showLock();
-
-  // When app unlocked (if user already logged in in this session, we don't persist)
-  // But when user clicks openHome after unlocking, renderAll executed in unlock handler.
-
-  // Run renderAll if data exists and app visible
-  // Attach beforeunload to save (already using localStorage as we go)
-
-  // initial population (in case user is already on app view)
-  populateMachinesSelect();
-
-  // For convenience: if running locally and developer wants to bypass PIN while developing, you can set localStorage.setItem('cm_pin','1234')
-})();
+    if
