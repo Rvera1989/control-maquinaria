@@ -1,3 +1,37 @@
+// ======= Manejo de PIN / Lock screen (añadir esto AL PRINCIPIO) =======
+const CORRECT_PIN = "7285";
+const lockScreen = document.getElementById("lockScreen");
+const pinInput = document.getElementById("pinInput");
+const unlockBtn = document.getElementById("unlockBtn");
+const clearDataBtn = document.getElementById("clearDataBtn");
+
+// Si alguno de estos elementos no existe, evitamos errores al cargar
+if (unlockBtn) {
+  unlockBtn.addEventListener("click", () => {
+    if (pinInput && pinInput.value === CORRECT_PIN) {
+      if (lockScreen) lockScreen.classList.add("hidden");
+      const appEl = document.getElementById("app");
+      if (appEl) appEl.classList.remove("hidden");
+    } else {
+      alert("PIN incorrecto ❌");
+      if (pinInput) pinInput.value = "";
+    }
+  });
+}
+
+if (clearDataBtn) {
+  clearDataBtn.addEventListener("click", () => {
+    if (confirm("¿Seguro que deseas borrar TODOS los registros?")) {
+      localStorage.removeItem("registros");
+      localStorage.removeItem("maquinas");
+      alert("Datos eliminados");
+      location.reload();
+    }
+  });
+}
+// Forzar que lockScreen esté visible al inicio si existe
+if (lockScreen) lockScreen.classList.remove("hidden");
+
 // ============================
 // SCRIPT MEJORADO: EDITAR / ELIMINAR / BUSCAR
 // ============================
