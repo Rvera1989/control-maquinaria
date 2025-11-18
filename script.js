@@ -197,10 +197,3 @@ document.getElementById("reportBtn").addEventListener("click", () => {
 
   alert(msg);
 });
-#lockScreen {
-  z-index: 9999;
-}
-
-#machineModal {
-  z-index: 9998;
-}
