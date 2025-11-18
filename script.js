@@ -1,273 +1,158 @@
-/* ============================================================
-   VARIABLES GLOBALES
-============================================================ */
-const PIN = "7285";
-let maquinas = JSON.parse(localStorage.getItem("maquinas")) || [];
-let registros = JSON.parse(localStorage.getItem("registros")) || [];
-let editandoID = null;
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Control de Maquinaria</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="manifest" href="manifest.json">
+</head>
+<body>
 
-/* ============================================================
-   INICIO: PANTALLA DE PIN
-============================================================ */
-const lockScreen = document.getElementById("lockScreen");
-const app = document.getElementById("app");
+<!-- PANTALLA DE PIN -->
+<div id="lockScreen" style="text-align:center; padding:40px;">
+  <h2>Ingresar PIN</h2>
+  <input id="pinInput" type="password" placeholder="Escribe el PIN" style="font-size:18px; padding:10px; margin-top:15px;">
+  <br><br>
+  <button id="unlockBtn" style="padding:12px 20px; font-size:16px;">Entrar</button>
+  <br><br>
+  <button id="clearDataBtn" style="padding:10px 20px; font-size:14px; background:#b30000; color:white;">Borrar Datos</button>
+</div>
 
-document.getElementById("unlockBtn").onclick = () => {
-  const pin = document.getElementById("pinInput").value;
-  if (pin === PIN) {
-    lockScreen.classList.add("hidden");
-    app.classList.remove("hidden");
-    cargarMaquinasEnSelect();
-    refrescarTablaRegistros();
-  } else {
-    alert("PIN incorrecto");
-  }
-};
+<!-- APP PRINCIPAL -->
+<div id="app" class="hidden">
 
-document.getElementById("clearDataBtn").onclick = () => {
-  if (confirm("¿Seguro que deseas borrar TODO?")) {
-    localStorage.clear();
-    location.reload();
-  }
-};
+  <header style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+    <h1 style="margin:0">Control de Maquinaria</h1>
+    <div style="margin-left:auto;display:flex;gap:8px;align-items:center;">
+      <button id="openHome">🏠 Inicio</button>
+      <button id="openMachinesPage">⚙️ Maquinarias</button>
+      <button id="addMachineBtn">➕ Agregar máquina</button>
+      <button id="reportBtn">📊 Reporte semanal</button>
+      <button id="exportBtn">⬇️ Exportar CSV</button>
+    </div>
+  </header>
 
-/* ============================================================
-   MAQUINARIAS: ABRIR PÁGINA / CERRAR
-============================================================ */
-const machinesPage = document.getElementById("machinesPage");
+  <main id="homePage">
+    <section style="margin-top:12px;">
+      <h2>Registrar trabajo</h2>
+      <form id="registroForm">
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;">
+          <label>Fecha
+            <input type="date" id="fecha" required />
+          </label>
 
-document.getElementById("openMachinesPage").onclick = () => {
-  app.classList.add("hidden");
-  machinesPage.classList.remove("hidden");
-  mostrarListaMaquinas();
-};
+          <label>Maquinaria
+            <select id="maquinaria"></select>
+          </label>
 
-document.getElementById("closeMachinesPage").onclick = () => {
-  machinesPage.classList.add("hidden");
-  app.classList.remove("hidden");
-  cargarMaquinasEnSelect();
-};
+          <label>Hora inicio (mañana)
+            <input type="time" id="inicioM" />
+          </label>
 
-/* ============================================================
-   MODAL AGREGAR MAQUINARIA
-============================================================ */
-const modal = document.getElementById("machineModal");
-document.getElementById("addMachineBtn").onclick = () => abrirModal();
-document.getElementById("addMachineFromPage").onclick = () => abrirModal();
+          <label>Hora inicio (tarde)
+            <input type="time" id="inicioT" />
+          </label>
 
-function abrirModal() {
-  document.getElementById("newMachineName").value = "";
-  editandoID = null;
-  modal.classList.remove("hidden");
-}
+          <label>Tipo de trabajo
+            <input type="text" id="tipo" placeholder="Mantenimiento, Carga..." />
+          </label>
 
-document.getElementById("closeMachineBtn").onclick = () => {
-  modal.classList.add("hidden");
-};
+          <label>Observaciones
+            <input type="text" id="obs" placeholder="Detalles (opcional)" />
+          </label>
 
-document.getElementById("saveMachineBtn").onclick = () => {
-  const nombre = document.getElementById("newMachineName").value.trim();
-  if (nombre === "") return alert("Escribe un nombre");
+          <label>Foto (opcional)
+            <input type="file" id="foto" accept="image/*" />
+          </label>
 
-  if (editandoID !== null) {
-    maquinas[editandoID] = nombre;
-  } else {
-    maquinas.push(nombre);
-  }
+          <div style="align-self:end;">
+            <b>Horas trabajadas: <span id="horasDisplay">0.00</span></b>
+          </div>
+        </div>
 
-  maquinas.sort(); // Orden A-Z
+        <div style="margin-top:10px;">
+          <button type="submit">Guardar registro</button>
+          <button type="button" id="resetForm" class="secondary">Limpiar</button>
+        </div>
+      </form>
+    </section>
 
-  localStorage.setItem("maquinas", JSON.stringify(maquinas));
-  modal.classList.add("hidden");
+    <section style="margin-top:18px;">
+      <h2>Registros</h2>
 
-  cargarMaquinasEnSelect();
-  mostrarListaMaquinas();
+      <!-- BUSCADOR REGISTROS: exacto y rango -->
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:8px;">
+        <div>
+          <label>Fecha exacta:
+            <input type="date" id="searchDateExact" />
+          </label>
+          <button id="searchExactBtn" class="secondary">Buscar</button>
+        </div>
 
-  alert("Maquinaria guardada");
-};
+        <div>
+          <label>Rango Desde:
+            <input type="date" id="searchDateFrom" />
+          </label>
+        </div>
 
-/* ============================================================
-   LISTA DE MAQUINARIAS: MOSTRAR, EDITAR, ELIMINAR
-============================================================ */
-function mostrarListaMaquinas() {
-  const cont = document.getElementById("listaMaquinas");
-  cont.innerHTML = "";
+        <div>
+          <label>Hasta:
+            <input type="date" id="searchDateTo" />
+          </label>
+        </div>
 
-  maquinas.forEach((m, index) => {
-    const div = document.createElement("div");
-    div.className = "machineRow";
-    div.innerHTML = `
-      <span>${m}</span>
-      <button class="editM" data-id="${index}">Editar</button>
-      <button class="delM" data-id="${index}">Eliminar</button>
-    `;
-    cont.appendChild(div);
-  });
+        <div>
+          <button id="searchRangeBtn" class="secondary">Buscar rango</button>
+          <button id="clearSearchBtn" class="secondary">Mostrar todo</button>
+        </div>
+      </div>
 
-  // Editar maquinaria
-  document.querySelectorAll(".editM").forEach(btn => {
-    btn.onclick = () => {
-      const id = btn.dataset.id;
-      editandoID = id;
-      document.getElementById("newMachineName").value = maquinas[id];
-      modal.classList.remove("hidden");
-    };
-  });
+      <table id="tabla">
+        <thead>
+          <tr>
+            <th>Fecha</th>
+            <th>Maquinaria</th>
+            <th>Tipo</th>
+            <th>Obs</th>
+            <th>Horas</th>
+            <th>Foto</th>
+            <th>Acciones</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </section>
+  </main>
 
-  // Eliminar maquinaria
-  document.querySelectorAll(".delM").forEach(btn => {
-    btn.onclick = () => {
-      const id = btn.dataset.id;
-      if (confirm("¿Eliminar maquinaria?")) {
-        maquinas.splice(id, 1);
-        localStorage.setItem("maquinas", JSON.stringify(maquinas));
-        mostrarListaMaquinas();
-        cargarMaquinasEnSelect();
-      }
-    };
-  });
-}
+</div>
 
-/* ============================================================
-   BUSCADOR DE MAQUINARIAS
-============================================================ */
-document.getElementById("buscarMaquina").addEventListener("input", filtrarMaquinas);
+<!-- PÁGINA MAQUINARIAS -->
+<div id="machinesPage" class="hidden pageBox">
+  <h2>Maquinarias</h2>
 
-function filtrarMaquinas() {
-  const txt = document.getElementById("buscarMaquina").value.toLowerCase();
-  const filtradas = maquinas.filter(m => m.toLowerCase().includes(txt));
+  <input id="buscarMaquina" type="text" placeholder="Buscar por nombre..." style="padding:8px;width:100%;margin-bottom:10px;">
 
-  actualizarListaFiltrada(filtradas);
-}
+  <div id="listaMaquinas" style="display:flex;flex-direction:column;gap:8px;"></div>
 
-function actualizarListaFiltrada(lista) {
-  const cont = document.getElementById("listaMaquinas");
-  cont.innerHTML = "";
+  <div style="margin-top:12px;">
+    <button id="addMachineFromPage">➕ Agregar nueva máquina</button>
+    <button id="closeMachinesPage" class="secondary">Volver</button>
+  </div>
+</div>
 
-  lista.forEach(m => {
-    const idReal = maquinas.indexOf(m);
-    const div = document.createElement("div");
-    div.className = "machineRow";
-    div.innerHTML = `
-      <span>${m}</span>
-      <button class="editM" data-id="${idReal}">Editar</button>
-      <button class="delM" data-id="${idReal}">Eliminar</button>
-    `;
-    cont.appendChild(div);
-  });
+<!-- MODAL AGREGAR MAQUINA -->
+<div id="machineModal" class="hidden modal">
+  <div class="modal-card" style="max-width:360px;padding:12px;">
+    <h3>Agregar / Editar Maquinaria</h3>
+    <input id="newMachineName" placeholder="Nombre de la maquinaria" style="width:100%;padding:8px;margin-top:8px;" />
+    <div style="display:flex;gap:8px;margin-top:10px;">
+      <button id="saveMachineBtn">Guardar</button>
+      <button id="closeMachineBtn" class="secondary">Cerrar</button>
+    </div>
+  </div>
+</div>
 
-  // Mantener funcionamiento
-  document.querySelectorAll(".editM").forEach(btn => {
-    btn.onclick = () => {
-      editandoID = btn.dataset.id;
-      document.getElementById("newMachineName").value = maquinas[editandoID];
-      modal.classList.remove("hidden");
-    };
-  });
-
-  document.querySelectorAll(".delM").forEach(btn => {
-    btn.onclick = () => {
-      const id = btn.dataset.id;
-      if (confirm("¿Eliminar maquinaria?")) {
-        maquinas.splice(id, 1);
-        localStorage.setItem("maquinas", JSON.stringify(maquinas));
-        mostrarListaMaquinas();
-        cargarMaquinasEnSelect();
-      }
-    };
-  });
-}
-
-/* ============================================================
-   CARGAR MAQUINAS EN SELECT PRINCIPAL
-============================================================ */
-function cargarMaquinasEnSelect() {
-  const sel = document.getElementById("maquinaria");
-  sel.innerHTML = "";
-
-  maquinas.forEach(m => {
-    const op = document.createElement("option");
-    op.value = m;
-    op.textContent = m;
-    sel.appendChild(op);
-  });
-}
-
-/* ============================================================
-   REGISTRO DE TRABAJOS
-============================================================ */
-document.getElementById("registroForm").onsubmit = e => {
-  e.preventDefault();
-
-  const fecha = document.getElementById("fecha").value;
-  const maq = document.getElementById("maquinaria").value;
-  const inicioM = document.getElementById("inicioM").value;
-  const inicioT = document.getElementById("inicioT").value;
-  const tipo = document.getElementById("tipo").value;
-  const obs = document.getElementById("obs").value;
-  const foto = document.getElementById("foto").files[0];
-
-  let horas = 0;
-
-  if (inicioM) horas += 4; 
-  if (inicioT) horas += 4;
-
-  const registro = {
-    fecha,
-    maq,
-    tipo,
-    obs,
-    horas,
-    foto: foto ? URL.createObjectURL(foto) : null
-  };
-
-  registros.push(registro);
-  localStorage.setItem("registros", JSON.stringify(registros));
-
-  refrescarTablaRegistros();
-
-  alert("Registro guardado");
-};
-
-function refrescarTablaRegistros() {
-  const tbody = document.querySelector("#tabla tbody");
-  tbody.innerHTML = "";
-
-  registros.forEach(r => {
-    const tr = document.createElement("tr");
-    tr.innerHTML = `
-      <td>${r.fecha}</td>
-      <td>${r.maq}</td>
-      <td>${r.tipo}</td>
-      <td>${r.obs}</td>
-      <td>${r.horas}</td>
-      <td>${r.foto ? "<img src='" + r.foto + "' width='50'>" : "-"}</td>
-    `;
-    tbody.appendChild(tr);
-  });
-}
-
-/* ============================================================
-   EXPORTAR CSV
-============================================================ */
-document.getElementById("exportBtn").onclick = () => {
-  let csv = "Fecha,Maquinaria,Tipo,Obs,Horas\n";
-  registros.forEach(r => {
-    csv += `${r.fecha},${r.maq},${r.tipo},${r.obs},${r.horas}\n`;
-  });
-
-  const blob = new Blob([csv], { type: "text/csv" });
-  const a = document.createElement("a");
-  a.href = URL.createObjectURL(blob);
-  a.download = "registros.csv";
-  a.click();
-};
-
-/* ============================================================
-   REPORTE SEMANAL
-============================================================ */
-document.getElementById("reportBtn").onclick = () => {
-  let total = 0;
-  registros.forEach(r => total += r.horas);
-  alert("Total horas acumuladas: " + total);
-};
+<script defer src="script.js"></script>
+</body>
+</html>
