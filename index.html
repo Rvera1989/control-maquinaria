@@ -1,15 +1,31 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <base href="/control-maquinaria/">
-
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
+
+  <!-- Base obligatoria para GitHub Pages -->
+  <base href="/control-maquinaria/">
+
   <title>Control de Maquinaria</title>
 
+  <!-- iOS PWA FIXES -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Maquinaria">
+
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+
+  <!-- Archivos principales -->
   <link rel="stylesheet" href="style.css">
   <link rel="manifest" href="manifest.json">
+
+  <!-- Forzar cache en iOS -->
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+  <meta http-equiv="Pragma" content="no-cache" />
+  <meta http-equiv="Expires" content="0" />
 </head>
+
 <body>
 
 <!-- PANTALLA DE PIN -->
@@ -21,11 +37,11 @@
       <button id="unlockBtn" class="btn primary">Entrar</button>
       <button id="clearDataBtn" class="btn danger">Borrar Datos</button>
     </div>
-    <p class="muted small">PIN por defecto: <code>1234</code> (puedes cambiarlo desde el código o pedirlo).</p>
+    <p class="muted small">PIN por defecto: <code>1234</code></p>
   </div>
 </div>
 
-<!-- APP PRINCIPAL -->
+<!-- APP -->
 <div id="app" class="hidden appshell">
 
   <header class="topbar">
@@ -43,6 +59,7 @@
     <section class="card">
       <h2>Registrar trabajo</h2>
       <form id="registroForm" class="grid-form">
+
         <label>Fecha
           <input type="date" id="fecha" required />
         </label>
@@ -93,6 +110,7 @@
           <button type="button" id="resetForm" class="btn">Limpiar</button>
           <button type="button" id="exportSingleCSV" class="btn">⬇️ Exportar registros (CSV)</button>
         </div>
+
       </form>
     </section>
 
@@ -140,8 +158,12 @@
           </thead>
           <tbody></tbody>
         </table>
-        <div id="noRecords" class="muted small hidden">No hay registros.</div>
+
+        <div id="noRecords" class="muted small hidden">
+          No hay registros.
+        </div>
       </div>
+
     </section>
   </main>
 
@@ -159,7 +181,7 @@
     <div id="listaMaquinas" class="list"></div>
   </div>
 
-  <!-- MODAL AGREGAR MAQUINA -->
+  <!-- MODAL -->
   <div id="machineModal" class="hidden modal">
     <div class="modal-card">
       <h3 id="machineModalTitle">Agregar Maquinaria</h3>
@@ -173,6 +195,19 @@
 
 </div>
 
-<script defer src="script.js"></script>
+<!-- Script principal -->
+<script src="script.js" defer></script>
+
+<!-- Service Worker REGISTRADO CORRECTAMENTE PARA iOS + GitHub Pages -->
+<script>
+  if ("serviceWorker" in navigator) {
+    window.addEventListener("load", () => {
+      navigator.serviceWorker.register("/control-maquinaria/service-worker.js", {
+        scope: "/control-maquinaria/"
+      });
+    });
+  }
+</script>
+
 </body>
 </html>
