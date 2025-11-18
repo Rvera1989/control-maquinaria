@@ -1,158 +1,378 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Control de Maquinaria</title>
-  <link rel="stylesheet" href="style.css">
-  <link rel="manifest" href="manifest.json">
-</head>
-<body>
+/* ============================================================
+  script.js - Control de Maquinarias y Registros (mejorado)
+  Ahora incluye: Totales por máquina para resultados mostrados,
+  y asegura que búsqueda, edición y eliminación funcionen en filtrados.
+============================================================ */
 
-<!-- PANTALLA DE PIN -->
-<div id="lockScreen" style="text-align:center; padding:40px;">
-  <h2>Ingresar PIN</h2>
-  <input id="pinInput" type="password" placeholder="Escribe el PIN" style="font-size:18px; padding:10px; margin-top:15px;">
-  <br><br>
-  <button id="unlockBtn" style="padding:12px 20px; font-size:16px;">Entrar</button>
-  <br><br>
-  <button id="clearDataBtn" style="padding:10px 20px; font-size:14px; background:#b30000; color:white;">Borrar Datos</button>
-</div>
+(() => {
+  // ---- Keys localStorage
+  const KEY_M = "maquinas";
+  const KEY_R = "registros";
+  const PIN = "7285";
 
-<!-- APP PRINCIPAL -->
-<div id="app" class="hidden">
+  // ---- State
+  let maquinas = JSON.parse(localStorage.getItem(KEY_M) || "[]");
+  let registros = JSON.parse(localStorage.getItem(KEY_R) || "[]");
+  let editingRegistroId = null; // id para editar registro (timestamp)
+  let editingMachineIndex = null; // index para editar máquina
 
-  <header style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-    <h1 style="margin:0">Control de Maquinaria</h1>
-    <div style="margin-left:auto;display:flex;gap:8px;align-items:center;">
-      <button id="openHome">🏠 Inicio</button>
-      <button id="openMachinesPage">⚙️ Maquinarias</button>
-      <button id="addMachineBtn">➕ Agregar máquina</button>
-      <button id="reportBtn">📊 Reporte semanal</button>
-      <button id="exportBtn">⬇️ Exportar CSV</button>
-    </div>
-  </header>
+  // ---- Helper to get elements safely
+  const $ = id => document.getElementById(id);
+  const qs = sel => document.querySelector(sel);
 
-  <main id="homePage">
-    <section style="margin-top:12px;">
-      <h2>Registrar trabajo</h2>
-      <form id="registroForm">
-        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;">
-          <label>Fecha
-            <input type="date" id="fecha" required />
-          </label>
+  // ---- Elements
+  const lockScreen = $("lockScreen");
+  const pinInput = $("pinInput");
+  const unlockBtn = $("unlockBtn");
+  const clearDataBtn = $("clearDataBtn");
+  const app = $("app");
 
-          <label>Maquinaria
-            <select id="maquinaria"></select>
-          </label>
+  const maquinaSelect = $("maquinaria");
+  const registroForm = $("registroForm");
+  const fechaEl = $("fecha");
+  const inicioMEl = $("inicioM");
+  const inicioTEl = $("inicioT");
+  const tipoEl = $("tipo");
+  const obsEl = $("obs");
+  const fotoEl = $("foto");
+  const horasDisplay = $("horasDisplay");
+  const resetFormBtn = $("resetForm");
 
-          <label>Hora inicio (mañana)
-            <input type="time" id="inicioM" />
-          </label>
+  const tablaBody = qs("#tabla tbody");
+  const tablaEl = $("tabla");
 
-          <label>Hora inicio (tarde)
-            <input type="time" id="inicioT" />
-          </label>
+  // Search elements (records)
+  const searchDateExact = $("searchDateExact");
+  const searchExactBtn = $("searchExactBtn");
+  const searchDateFrom = $("searchDateFrom");
+  const searchDateTo = $("searchDateTo");
+  const searchRangeBtn = $("searchRangeBtn");
+  const clearSearchBtn = $("clearSearchBtn");
 
-          <label>Tipo de trabajo
-            <input type="text" id="tipo" placeholder="Mantenimiento, Carga..." />
-          </label>
+  // Machines page elements
+  const openMachinesPage = $("openMachinesPage");
+  const machinesPage = $("machinesPage");
+  const closeMachinesPage = $("closeMachinesPage");
+  const addMachineBtn = $("addMachineBtn");
+  const addMachineFromPage = $("addMachineFromPage");
+  const buscarMaquina = $("buscarMaquina");
+  const listaMaquinas = $("listaMaquinas");
+  const machineModal = $("machineModal");
+  const newMachineName = $("newMachineName");
+  const saveMachineBtn = $("saveMachineBtn");
+  const closeMachineBtn = $("closeMachineBtn");
 
-          <label>Observaciones
-            <input type="text" id="obs" placeholder="Detalles (opcional)" />
-          </label>
+  // Export / report
+  const exportBtn = $("exportBtn");
+  const reportBtn = $("reportBtn");
 
-          <label>Foto (opcional)
-            <input type="file" id="foto" accept="image/*" />
-          </label>
+  // Ensure default machines
+  function ensureDefaultMachines() {
+    if (!maquinas || maquinas.length === 0) {
+      maquinas = ["Excavadora","Retroexcavadora","Volquete","Motoniveladora","Rodillo"];
+      maquinas.sort((a,b)=> a.localeCompare(b,'es',{sensitivity:'base'}));
+      localStorage.setItem(KEY_M, JSON.stringify(maquinas));
+    }
+  }
+  ensureDefaultMachines();
 
-          <div style="align-self:end;">
-            <b>Horas trabajadas: <span id="horasDisplay">0.00</span></b>
-          </div>
-        </div>
+  // Save helpers
+  function saveMachines() { localStorage.setItem(KEY_M, JSON.stringify(maquinas)); }
+  function saveRegistros() { localStorage.setItem(KEY_R, JSON.stringify(registros)); }
 
-        <div style="margin-top:10px;">
-          <button type="submit">Guardar registro</button>
-          <button type="button" id="resetForm" class="secondary">Limpiar</button>
-        </div>
-      </form>
-    </section>
+  // Ensure totals container exists (will be placed after table)
+  function ensureTotalsContainer() {
+    if (!tablaEl) return null;
+    let c = $("totalsContainer");
+    if (!c) {
+      c = document.createElement("div");
+      c.id = "totalsContainer";
+      c.style = "margin-top:10px;padding:8px;background:#f7f7f7;border-radius:6px;color:#222";
+      tablaEl.parentNode.insertBefore(c, tablaEl.nextSibling);
+    }
+    return c;
+  }
 
-    <section style="margin-top:18px;">
-      <h2>Registros</h2>
+  // ---------- PIN handling
+  if (unlockBtn && pinInput && lockScreen && app) {
+    unlockBtn.addEventListener("click", () => {
+      const val = (pinInput.value || "").trim();
+      if (val === PIN) {
+        lockScreen.classList.add("hidden");
+        app.classList.remove("hidden");
+        populateMachineSelect();
+        renderRegistros(registros);
+      } else {
+        alert("PIN incorrecto");
+        pinInput.value = "";
+      }
+    });
+  }
+  if (clearDataBtn) {
+    clearDataBtn.addEventListener("click", () => {
+      if (!confirm("¿Seguro que deseas borrar TODOS los datos?")) return;
+      localStorage.removeItem(KEY_M);
+      localStorage.removeItem(KEY_R);
+      maquinas = [];
+      registros = [];
+      ensureDefaultMachines();
+      populateMachineSelect();
+      renderMachineList();
+      renderRegistros(registros);
+      alert("Datos borrados");
+    });
+  }
 
-      <!-- BUSCADOR REGISTROS: exacto y rango -->
-      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:8px;">
-        <div>
-          <label>Fecha exacta:
-            <input type="date" id="searchDateExact" />
-          </label>
-          <button id="searchExactBtn" class="secondary">Buscar</button>
-        </div>
+  // ---------- UI helpers
+  function populateMachineSelect() {
+    if (!maquinaSelect) return;
+    maquinaSelect.innerHTML = "";
+    maquinas.slice().sort((a,b)=> a.localeCompare(b,'es',{sensitivity:'base'})).forEach(m => {
+      const opt = document.createElement("option");
+      opt.value = m;
+      opt.textContent = m;
+      maquinaSelect.appendChild(opt);
+    });
+  }
 
-        <div>
-          <label>Rango Desde:
-            <input type="date" id="searchDateFrom" />
-          </label>
-        </div>
+  // Renders registros list into table and updates totalsContainer
+  function renderRegistros(list) {
+    if (!tablaBody) return;
+    tablaBody.innerHTML = "";
+    const arr = Array.isArray(list) ? list : registros;
+    if (!arr || arr.length === 0) {
+      const tr = document.createElement("tr");
+      tr.innerHTML = `<td colspan="7" style="text-align:center;color:#666">No hay registros</td>`;
+      tablaBody.appendChild(tr);
+      updateTotalsDisplay([]); // clear totals
+      return;
+    }
 
-        <div>
-          <label>Hasta:
-            <input type="date" id="searchDateTo" />
-          </label>
-        </div>
+    arr.forEach(r => {
+      const tr = document.createElement("tr");
+      const fotoHtml = r.foto ? `<img src="${r.foto}" style="width:60px;height:40px;object-fit:cover;border-radius:4px">` : "-";
+      tr.innerHTML = `
+        <td>${r.fecha || ""}</td>
+        <td>${r.maquina || ""}</td>
+        <td>${r.tipo || ""}</td>
+        <td>${r.obs || ""}</td>
+        <td>${(typeof r.horas === "number") ? r.horas.toFixed(2) : r.horas}</td>
+        <td>${fotoHtml}</td>
+        <td>
+          <button class="editRecord" data-id="${r.id}">Editar</button>
+          <button class="deleteRecord" data-id="${r.id}">Eliminar</button>
+        </td>
+      `;
+      tablaBody.appendChild(tr);
+    });
 
-        <div>
-          <button id="searchRangeBtn" class="secondary">Buscar rango</button>
-          <button id="clearSearchBtn" class="secondary">Mostrar todo</button>
-        </div>
-      </div>
+    // attach actions (works for filtered lists too)
+    tablaBody.querySelectorAll(".editRecord").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const id = btn.dataset.id;
+        editarRegistro(id);
+      });
+    });
+    tablaBody.querySelectorAll(".deleteRecord").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const id = btn.dataset.id;
+        eliminarRegistro(id);
+      });
+    });
 
-      <table id="tabla">
-        <thead>
-          <tr>
-            <th>Fecha</th>
-            <th>Maquinaria</th>
-            <th>Tipo</th>
-            <th>Obs</th>
-            <th>Horas</th>
-            <th>Foto</th>
-            <th>Acciones</th>
-          </tr>
-        </thead>
-        <tbody></tbody>
-      </table>
-    </section>
-  </main>
+    // update totals for displayed arr
+    updateTotalsDisplay(arr);
+  }
 
-</div>
+  // ---------- Totals by machine (for displayed records)
+  function updateTotalsDisplay(arr) {
+    const container = ensureTotalsContainer();
+    if (!container) return;
+    if (!arr || arr.length === 0) {
+      container.innerHTML = "<strong>Totales:</strong> no hay registros seleccionados.";
+      return;
+    }
+    // sum hours per machine
+    const totals = {};
+    let grand = 0;
+    arr.forEach(r => {
+      const m = r.maquina || "Sin máquina";
+      const h = Number(r.horas) || 0;
+      totals[m] = (totals[m] || 0) + h;
+      grand += h;
+    });
 
-<!-- PÁGINA MAQUINARIAS -->
-<div id="machinesPage" class="hidden pageBox">
-  <h2>Maquinarias</h2>
+    // build HTML
+    let html = `<strong>Totales por máquina (resultados mostrados):</strong><br><ul style="margin:6px 0 0 18px;">`;
+    Object.keys(totals).sort((a,b)=> a.localeCompare(b,'es',{sensitivity:'base'})).forEach(k => {
+      html += `<li>${k}: ${totals[k].toFixed(2)} h</li>`;
+    });
+    html += `</ul><div style="margin-top:6px;"><strong>Total general:</strong> ${grand.toFixed(2)} h</div>`;
+    container.innerHTML = html;
+  }
 
-  <input id="buscarMaquina" type="text" placeholder="Buscar por nombre..." style="padding:8px;width:100%;margin-bottom:10px;">
+  // ---------- Add / Edit registro
+  function calcularHoras(inM, inT) {
+    if (!inM || !inT) return 0;
+    const [mh,mm] = inM.split(":").map(Number);
+    const [th,tm] = inT.split(":").map(Number);
+    let diff = ((th*60+tm)-(mh*60+mm))/60 - 1;
+    return diff > 0 ? +diff.toFixed(2) : 0;
+  }
 
-  <div id="listaMaquinas" style="display:flex;flex-direction:column;gap:8px;"></div>
+  function mostrarHoras() {
+    if (!horasDisplay) return;
+    horasDisplay.textContent = calcularHoras(inicioMEl.value, inicioTEl.value).toFixed(2);
+  }
+  if (inicioMEl) inicioMEl.addEventListener("change", mostrarHoras);
+  if (inicioTEl) inicioTEl.addEventListener("change", mostrarHoras);
 
-  <div style="margin-top:12px;">
-    <button id="addMachineFromPage">➕ Agregar nueva máquina</button>
-    <button id="closeMachinesPage" class="secondary">Volver</button>
-  </div>
-</div>
+  // Submit registro
+  if (registroForm) {
+    registroForm.addEventListener("submit", (e) => {
+      e.preventDefault();
 
-<!-- MODAL AGREGAR MAQUINA -->
-<div id="machineModal" class="hidden modal">
-  <div class="modal-card" style="max-width:360px;padding:12px;">
-    <h3>Agregar / Editar Maquinaria</h3>
-    <input id="newMachineName" placeholder="Nombre de la maquinaria" style="width:100%;padding:8px;margin-top:8px;" />
-    <div style="display:flex;gap:8px;margin-top:10px;">
-      <button id="saveMachineBtn">Guardar</button>
-      <button id="closeMachineBtn" class="secondary">Cerrar</button>
-    </div>
-  </div>
-</div>
+      const fecha = (fechaEl && fechaEl.value) || new Date().toISOString().slice(0,10);
+      const maquina = (maquinaSelect && maquinaSelect.value) || (maquinas[0] || "");
+      const inicioM = (inicioMEl && inicioMEl.value) || "";
+      const inicioT = (inicioTEl && inicioTEl.value) || "";
+      const tipo = (tipoEl && tipoEl.value) || "";
+      const obs = (obsEl && obsEl.value) || "";
+      const horas = calcularHoras(inicioM,inicioT);
 
-<script defer src="script.js"></script>
-</body>
-</html>
+      const file = (fotoEl && fotoEl.files && fotoEl.files[0]) ? fotoEl.files[0] : null;
+
+      const guardarRegistro = (fotoBase64) => {
+        if (editingRegistroId) {
+          // replace existing
+          registros = registros.map(r => {
+            if (String(r.id) === String(editingRegistroId)) {
+              return { id: r.id, fecha, maquina, inicioM, inicioT, tipo, obs, horas, foto: fotoBase64 !== undefined ? fotoBase64 : r.foto };
+            }
+            return r;
+          });
+          editingRegistroId = null;
+        } else {
+          const nuevo = { id: Date.now(), fecha, maquina, inicioM, inicioT, tipo, obs, horas, foto: fotoBase64 || "" };
+          registros.push(nuevo);
+        }
+        saveRegistros();
+        renderRegistros(registros);
+        registroForm.reset();
+        if (horasDisplay) horasDisplay.textContent = "0.00";
+      };
+
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = (ev) => guardarRegistro(ev.target.result);
+        reader.readAsDataURL(file);
+      } else {
+        // if editing and no new file selected, preserve previous foto (handled in guardarRegistro above)
+        guardarRegistro(undefined);
+      }
+    });
+  }
+
+  // Edit / Delete registro
+  function editarRegistro(id) {
+    const r = registros.find(x => String(x.id) === String(id));
+    if (!r) return alert("Registro no encontrado");
+    editingRegistroId = r.id;
+    if (fechaEl) fechaEl.value = r.fecha;
+    if (maquinaSelect) maquinaSelect.value = r.maquina;
+    if (inicioMEl) inicioMEl.value = r.inicioM || "";
+    if (inicioTEl) inicioTEl.value = r.inicioT || "";
+    if (tipoEl) tipoEl.value = r.tipo || "";
+    if (obsEl) obsEl.value = r.obs || "";
+    // cannot pre-fill file input for security; inform user
+    alert("Se cargaron datos para edición. Si desea mantener la foto actual, deje el campo Foto vacío al guardar.");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+    mostrarHoras();
+  }
+
+  function eliminarRegistro(id) {
+    if (!confirm("¿Eliminar este registro?")) return;
+    registros = registros.filter(r => String(r.id) !== String(id));
+    saveRegistros();
+    renderRegistros(registros);
+  }
+
+  // ---------- Search records: exact date and range
+  if (searchExactBtn) searchExactBtn.addEventListener("click", () => {
+    const f = (searchDateExact && searchDateExact.value) || "";
+    if (!f) return renderRegistros(registros);
+    const filtered = registros.filter(r => r.fecha === f);
+    renderRegistros(filtered);
+  });
+
+  if (searchRangeBtn) searchRangeBtn.addEventListener("click", () => {
+    const from = (searchDateFrom && searchDateFrom.value) || "";
+    const to = (searchDateTo && searchDateTo.value) || "";
+    if (!from || !to) return alert("Selecciona ambas fechas para el rango");
+    const fromD = new Date(from);
+    const toD = new Date(to);
+    if (isNaN(fromD) || isNaN(toD)) return alert("Fechas inválidas");
+    const filtered = registros.filter(r => {
+      const d = new Date(r.fecha);
+      return d >= fromD && d <= toD;
+    });
+    renderRegistros(filtered);
+  });
+
+  if (clearSearchBtn) clearSearchBtn.addEventListener("click", () => {
+    if (searchDateExact) searchDateExact.value = "";
+    if (searchDateFrom) searchDateFrom.value = "";
+    if (searchDateTo) searchDateTo.value = "";
+    renderRegistros(registros);
+  });
+
+  // ---------- Machines page: render, search, add, edit, delete
+  function renderMachineList(list) {
+    if (!listaMaquinas) return;
+    listaMaquinas.innerHTML = "";
+    const arr = Array.isArray(list) ? list : maquinas.slice().sort((a,b)=> a.localeCompare(b,'es',{sensitivity:'base'}));
+    if (arr.length === 0) {
+      listaMaquinas.innerHTML = "<div style='color:#666'>No hay maquinarias</div>";
+      return;
+    }
+    arr.forEach(name => {
+      const idx = maquinas.indexOf(name);
+      const row = document.createElement("div");
+      row.className = "machineRow";
+      row.style = "display:flex;justify-content:space-between;align-items:center;padding:8px;background:#f5f5f5;border-radius:6px";
+      row.innerHTML = `<span>${name}</span>
+        <div style="display:flex;gap:6px">
+          <button class="editM" data-id="${idx}">Editar</button>
+          <button class="delM" data-id="${idx}">Eliminar</button>
+        </div>`;
+      listaMaquinas.appendChild(row);
+    });
+
+    // attach events
+    listaMaquinas.querySelectorAll(".editM").forEach(b => {
+      b.onclick = () => {
+        editingMachineIndex = Number(b.dataset.id);
+        if (newMachineName) newMachineName.value = maquinas[editingMachineIndex];
+        if (machineModal) machineModal.classList.remove("hidden");
+      };
+    });
+
+    listaMaquinas.querySelectorAll(".delM").forEach(b => {
+      b.onclick = () => {
+        const id = Number(b.dataset.id);
+        if (!confirm("Eliminar esta maquinaria?")) return;
+        maquinas.splice(id,1);
+        saveMachines();
+We need to finish assistant message: continue code—user pasted truncated script ends at saveMachines(); need to complete rest. Provide rest of code to end IIFE finishing render machine list deletion and other handlers. Continue using prior pattern from earlier full scripts. Must ensure functions saveMachines defined earlier? We didn't define saveMachines earlier in this script; earlier we had saveMachines and saveRegistros at top. But in current code we have saveMachines? At top we defined saveMachines? Yes we earlier had saveMachines function defined? Checking above: we had saveMachines declared near top? I see earlier "function saveMachines() { localStorage.setItem(KEY_M, JSON.stringify(maquinas)); }" — yes included earlier in previous version; in this user's pasted code near beginning they had saveMachines definition earlier? In user's provided script at top they had function saveMachines() earlier? Yes I see in user's original they had function saveMachines() earlier after modal save/close; but in this pasted version saveMachines and saveRegistros defined twice? In our updated script we defined saveMachines at top? At top we defined saveMachines earlier: after ensureDefaultMachines, we defined saveMachines and saveRegistros. Looking back: at start we had functions "function saveMachines() { localStorage.setItem(KEY_M, JSON.stringify(maquinas)); } function saveRegistros() { localStorage.setItem(KEY_R, JSON.stringify(registros)); }" — yes.
+
+So continue code: after deletion saveMachines(); populateMachineSelect(); renderMachineList(); }); then closing renderMachineList function. Then remaining code: search machines handler, open/close machines page handlers, modal openers, modal save/close, populateMachineSelect probably already defined? We have populateMachineSelect earlier yes. Continue with modal openers: addMachineBtn etc. Then modal save/close: saveMachineBtn addEventListener uses newMachineName and editingMachineIndex to push change and then saveMachines(); populateMachineSelect(); renderMachineList(); close modal.
+
+Then export/report event listeners already present earlier in user's pasted code? In this paste, exportBtn and reportBtn handlers exist later; but since we truncated earlier, need to finish: after renderMachineList ends, continue with buscarMaquina listener, open/close page, modal openers and save etc, and ensure initial calls: ensureDefaultMachines(); populateMachineSelect(); renderRegistros(registros); renderMachineList(); close IIFE.
+
+We must ensure not duplicating definitions. Let's craft the rest of script carefully building on what was pasted until the cut. The last visible line is "saveMachines();" then truncated. We'll produce full remainder.
+
+Also mention to user to replace script.js with full updated version (we provided earlier improved one). But they already pasted version. We'll respond by giving the completed script (full) — but we should merge our earlier improved script with their pasted portion. Simpler: deliver a complete, corrected script.js entirely (not a patch) and instruct to replace file. We already earlier provided a full improved script in previous assistant messages; that can be used. So respond: give final complete script.js and instructions. Keep concise.
+
+Let's produce final code — reuse earlier "improved" script from previous assistant message that included totals and robust handlers. Provide steps to replace and test, mention to clear cache. Also provide debugging tips.
+
+I'll deliver final code and steps.
