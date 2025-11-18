@@ -1,126 +1,149 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Control de Maquinaria</title>
-<link rel="stylesheet" href="style.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Control de Maquinaria</title>
+
+  <link rel="stylesheet" href="style.css">
+
+  <!-- Manifest para instalar como app -->
+  <link rel="manifest" href="manifest.json">
 </head>
 <body>
-<div id="lockScreen" class="overlay">
-  <div class="card">
-    <h2>Ingresar PIN</h2>
-    <input id="pinInput" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="10" placeholder="••••" autofocus />
-    <div class="row">
-      <button id="unlockBtn">Entrar</button>
-      <button id="clearDataBtn" class="danger">Borrar datos</button>
-    </div>
-    <p class="muted">Introduce el PIN para acceder.</p>
-  </div>
+
+<!-- =========================================================
+     PANTALLA DE PIN (LOGIN)
+========================================================= -->
+<div id="lockScreen" style="text-align:center; padding:40px;">
+  <h2>Ingresar PIN</h2>
+
+  <input 
+    id="pinInput" 
+    type="password" 
+    placeholder="Escribe el PIN"
+    style="font-size:18px; padding:10px; margin-top:15px;"
+  >
+
+  <br><br>
+
+  <button id="unlockBtn" style="padding:12px 20px; font-size:16px;">
+    Entrar
+  </button>
+
+  <br><br>
+
+  <button id="clearDataBtn" style="padding:10px 20px; font-size:14px; background:#b30000; color:white;">
+    Borrar Datos
+  </button>
 </div>
 
-<main id="app" class="hidden">
-  <header>
-    <h1>Control de Maquinaria</h1>
-    <div class="header-actions">
-      <button id="addMachineBtn">+ Agregar máquina</button>
-      <button id="exportBtn">Exportar CSV</button>
-      <button id="reportBtn">Reporte Semanal</button>
-    </div>
-  </header>
+<!-- =========================================================
+     APP PRINCIPAL
+========================================================= -->
+<div id="app" class="hidden">
 
-  <section class="form-card">
-    <form id="registroForm">
-      <div class="grid">
-        <label>Fecha
-          <input type="date" id="fecha" required />
-        </label>
+  <h2>Registro de Trabajo</h2>
 
-        <label>Maquinaria
-          <select id="maquinaria"></select>
-        </label>
-
-        <label>Tipo de trabajo
-          <input type="text" id="tipo" required placeholder="Ej. Mantenimiento, Carga, Desalojo" />
-        </label>
-
-        <label>Observaciones
-          <input type="text" id="obs" placeholder="Detalles adicionales (opcional)" />
-        </label>
-
-        <label>Hora inicio (mañana)
-          <input type="time" id="inicioM" required />
-        </label>
-
-        <label>Hora inicio (tarde)
-          <input type="time" id="inicioT" required />
-        </label>
-
-        <label>Foto (evidencia)
-          <input type="file" id="foto" accept="image/*" capture="environment" />
-        </label>
-
-        <div class="calc">
-          <div>Horas trabajadas</div>
-          <div id="horasDisplay">0.00</div>
-        </div>
-      </div>
-
-      <div class="row">
-        <button type="submit">Guardar registro</button>
-        <button type="button" id="resetForm" class="secondary">Limpiar</button>
-      </div>
-    </form>
-  </section>
-
-  <section>
-  <h2>Registros</h2>
-
-  <!-- BUSCADOR POR FECHA -->
-  <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;">
-    <input type="date" id="searchDate" />
-    <button id="searchBtn" class="secondary">Buscar</button>
-    <button id="clearSearchBtn" class="secondary">Mostrar todo</button>
+  <!-- Botones de navegación -->
+  <div style="margin-bottom:15px;">
+    <button id="openMachinesPage">⚙️ Maquinarias</button>
+    <button id="addMachineBtn">➕ Agregar máquina</button>
+    <button id="reportBtn">📊 Reporte semanal</button>
+    <button id="exportBtn">⬇️ Exportar CSV</button>
   </div>
 
+  <!-- FORMULARIO PRINCIPAL -->
+  <form id="registroForm">
+
+    <label>Fecha:</label>
+    <input type="date" id="fecha" required>
+
+    <label>Maquinaria:</label>
+    <select id="maquinaria"></select>
+
+    <label>Hora inicio mañana:</label>
+    <input type="time" id="inicioM">
+
+    <label>Hora inicio tarde:</label>
+    <input type="time" id="inicioT">
+
+    <label>Tipo de trabajo:</label>
+    <input id="tipo" placeholder="Tipo">
+
+    <label>Observaciones:</label>
+    <textarea id="obs" placeholder="Observaciones"></textarea>
+
+    <label>Foto:</label>
+    <input type="file" accept="image/*" id="foto">
+
+    <p><b>Horas trabajadas: <span id="horasDisplay">0.00</span></b></p>
+
+    <button type="submit">Guardar registro</button>
+  </form>
+
+  <!-- TABLA DE REGISTROS -->
+  <h3>Registros guardados</h3>
   <table id="tabla">
     <thead>
       <tr>
         <th>Fecha</th>
-        <th>Maquinaria</th>
+        <th>Maquina</th>
         <th>Tipo</th>
         <th>Obs</th>
         <th>Horas</th>
         <th>Foto</th>
-        <th>Acciones</th> <!-- nueva columna -->
       </tr>
     </thead>
     <tbody></tbody>
   </table>
-</section>
-  
-  <footer>
-    <small>Interfaz en español • Tema según el sistema</small>
-  </footer>
-</main>
 
-<!-- Modal to add machine -->
-<div id="machineModal" class="modal hidden">
-  <div class="modal-card">
+</div>
+
+<!-- =========================================================
+     PÁGINA DE MAQUINARIAS (NUEVA PESTAÑA)
+========================================================= -->
+<div id="machinesPage" class="hidden pageBox">
+
+  <h2>Maquinarias Registradas</h2>
+
+  <!-- BUSCADOR -->
+  <input 
+    type="text" 
+    id="buscarMaquina" 
+    placeholder="Buscar por nombre..."
+    style="padding:10px; width:100%; margin-bottom:15px; border-radius:6px;"
+  >
+
+  <!-- LISTADO -->
+  <div id="listaMaquinas"></div>
+
+  <br>
+  <button id="addMachineFromPage">➕ Agregar nueva máquina</button>
+  <br><br>
+  <button id="closeMachinesPage" class="secondary">Volver</button>
+</div>
+
+<!-- =========================================================
+     MODAL PARA AGREGAR MAQUINARIA
+========================================================= -->
+<div id="machineModal" class="hidden modal">
+
+  <div class="modalContent">
     <h3>Agregar Maquinaria</h3>
+
     <input id="newMachineName" placeholder="Nombre de la maquinaria" />
+
     <div class="row">
-      <button id="saveMachineBtn">Agregar</button>
+      <button id="saveMachineBtn">Guardar</button>
       <button id="closeMachineBtn" class="secondary">Cerrar</button>
     </div>
+
   </div>
+
 </div>
 
 <script defer src="script.js"></script>
-  <script>
-  if ("serviceWorker" in navigator) {
-    navigator.serviceWorker.register("./service-worker.js");
-  }
-</script>
+
 </body>
 </html>
