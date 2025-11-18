@@ -1,9 +1,9 @@
 /* script.js
    Control de Maquinaria - almacenamiento en localStorage
+   (Versión sin PIN: la app muestra directamente la UI principal)
    - Claves usadas:
      cm_machines  -> array [{id, name}]
      cm_records   -> array [{id, fecha, machineId, tipo, obs, horas, fotoDataUrl, meta...}]
-     cm_pin       -> string "1030" (fijo para todos los dispositivos)
 */
 
 (() => {
@@ -24,20 +24,14 @@
   // Keys
   const KEY_M = 'cm_machines';
   const KEY_R = 'cm_records';
-  const KEY_PIN = 'cm_pin';
 
-  // Initialize defaults
+  // Initialize defaults if not present
   if (!localStorage.getItem(KEY_M)) save(KEY_M, []);
   if (!localStorage.getItem(KEY_R)) save(KEY_R, []);
 
-  // 🔒 PIN FIJO: siempre forzar a 1030 en todos los dispositivos
-  save(KEY_PIN, '1030');
-
   // ---------- Elements ----------
-  const lockScreen = qs('#lockScreen');
+  const lockScreen = qs('#lockScreen'); // quedará oculto al inicio
   const app = qs('#app');
-  const unlockBtn = qs('#unlockBtn');
-  const pinInput = qs('#pinInput');
   const clearDataBtn = qs('#clearDataBtn');
 
   // Nav buttons
@@ -92,59 +86,53 @@
   let editingRecordId = null;
 
   // ---------- UI Helpers ----------
-  const show = el => el.classList.remove('hidden');
-  const hide = el => el.classList.add('hidden');
+  const show = el => el && el.classList.remove('hidden');
+  const hide = el => el && el.classList.add('hidden');
 
-  const showApp = () => { hide(lockScreen); show(app); };
-  const showLock = () => { show(lockScreen); hide(app); };
+  const showApp = () => {
+    // Hide lock screen if exists and show main app
+    if (lockScreen) hide(lockScreen);
+    if (app) show(app);
+  };
 
-  // ---------- PIN LOGIN ----------
-  unlockBtn.addEventListener('click', () => {
-    const pin = localStorage.getItem(KEY_PIN); // siempre 1030
-    if (pinInput.value === pin) {
-      pinInput.value = '';
-      showApp();
+  // ---------- Clear data button ----------
+  if (clearDataBtn) {
+    clearDataBtn.addEventListener('click', () => {
+      if (!confirm('¿Seguro que deseas borrar TODOS los datos? Esto no se puede deshacer.')) return;
+      localStorage.removeItem(KEY_M);
+      localStorage.removeItem(KEY_R);
+      machines = []; records = [];
+      save(KEY_M, machines);
+      save(KEY_R, records);
+      alert('Datos borrados.');
       renderAll();
-    } else {
-      alert('PIN incorrecto');
-    }
-  });
-
-  clearDataBtn.addEventListener('click', () => {
-    if (!confirm('¿Seguro que deseas borrar TODOS los datos? Esto no se puede deshacer.')) return;
-    localStorage.removeItem(KEY_M);
-    localStorage.removeItem(KEY_R);
-    machines = []; records = [];
-    save(KEY_M, machines); 
-    save(KEY_R, records);
-    alert('Datos borrados.');
-    renderAll();
-  });
+    });
+  }
 
   // ---------- Navigation ----------
-  openHome.addEventListener('click', () => {
+  openHome?.addEventListener('click', () => {
     hide(machinesPage);
     show(qs('#homePage'));
   });
 
-  openMachinesPage.addEventListener('click', () => {
+  openMachinesPage?.addEventListener('click', () => {
     show(machinesPage);
     hide(qs('#homePage'));
     renderMachinesList();
   });
 
-  addMachineBtn.addEventListener('click', () => openAddMachineModal());
-  addMachineFromPage.addEventListener('click', () => openAddMachineModal());
-  closeMachinesPage.addEventListener('click', () => {
+  addMachineBtn?.addEventListener('click', () => openAddMachineModal());
+  addMachineFromPage?.addEventListener('click', () => openAddMachineModal());
+  closeMachinesPage?.addEventListener('click', () => {
     hide(machinesPage);
     show(qs('#homePage'));
   });
 
-  exportBtn.addEventListener('click', () => {
+  exportBtn?.addEventListener('click', () => {
     exportCSV(records, 'registros_control_maquinaria.csv');
   });
 
-  exportSingleCSV.addEventListener('click', () => {
+  exportSingleCSV?.addEventListener('click', () => {
     exportCSV(records, 'registros_control_maquinaria.csv');
   });
 
@@ -157,12 +145,12 @@
     newMachineName.focus();
   }
 
-  closeMachineBtn.addEventListener('click', () => {
+  closeMachineBtn?.addEventListener('click', () => {
     hide(machineModal);
     editingMachineId = null;
   });
 
-  saveMachineBtn.addEventListener('click', () => {
+  saveMachineBtn?.addEventListener('click', () => {
     const name = newMachineName.value.trim();
     if (!name) { alert('Ingrese un nombre válido'); return; }
 
@@ -225,11 +213,12 @@
     });
   }
 
-  buscarMaquina.addEventListener('input', () => {
+  buscarMaquina?.addEventListener('input', () => {
     renderMachinesList(buscarMaquina.value.trim());
   });
 
   function populateMachinesSelect() {
+    if (!maquinariaSel) return;
     maquinariaSel.innerHTML = '<option value="">-- Seleccionar --</option>';
     machines.forEach(m => {
       const opt = document.createElement('option');
@@ -247,21 +236,21 @@
   }
 
   function calcHoras() {
-    const a = timeToMinutes(inicioM.value);
-    const b = timeToMinutes(finM.value);
-    const c = timeToMinutes(inicioT.value);
-    const d = timeToMinutes(finT.value);
+    const a = timeToMinutes(inicioM?.value);
+    const b = timeToMinutes(finM?.value);
+    const c = timeToMinutes(inicioT?.value);
+    const d = timeToMinutes(finT?.value);
     let total = 0;
 
     if (a !== null && b !== null && b > a) total += (b - a);
     if (c !== null && d !== null && d > c) total += (d - c);
 
     const hours = +(total / 60).toFixed(2);
-    horasDisplay.textContent = hours.toFixed(2);
+    if (horasDisplay) horasDisplay.textContent = hours.toFixed(2);
     return hours;
   }
 
-  [inicioM, finM, inicioT, finT].forEach(i => i.addEventListener('change', calcHoras));
+  [inicioM, finM, inicioT, finT].forEach(i => i?.addEventListener('change', calcHoras));
 
   function imageFileToDataUrl(file, maxWidth = 1200, maxHeight = 1200) {
     return new Promise((res) => {
@@ -288,20 +277,20 @@
     });
   }
 
-  registroForm.addEventListener('submit', async (ev) => {
+  registroForm?.addEventListener('submit', async (ev) => {
     ev.preventDefault();
-    const fecha = fechaEl.value;
-    const machineId = maquinariaSel.value;
+    const fecha = fechaEl?.value;
+    const machineId = maquinariaSel?.value;
 
     if (!fecha || !machineId) {
       alert('Seleccione fecha y maquinaria');
       return;
     }
 
-    const tipo = tipoEl.value.trim();
-    const obs = obsEl.value.trim();
+    const tipo = tipoEl?.value.trim() ?? '';
+    const obs = obsEl?.value.trim() ?? '';
     const horas = calcHoras();
-    const fotoFile = fotoEl.files && fotoEl.files[0] ? fotoEl.files[0] : null;
+    const fotoFile = fotoEl?.files && fotoEl.files[0] ? fotoEl.files[0] : null;
     const fotoDataUrl = await imageFileToDataUrl(fotoFile);
 
     if (editingRecordId) {
@@ -324,21 +313,21 @@
 
     save(KEY_R, records);
     registroForm.reset();
-    horasDisplay.textContent = '0.00';
+    if (horasDisplay) horasDisplay.textContent = '0.00';
     populateMachinesSelect();
     renderRecordsTable(records);
-
     alert('Registro guardado');
   });
 
-  resetFormBtn.addEventListener('click', () => {
+  resetFormBtn?.addEventListener('click', () => {
     registroForm.reset();
-    horasDisplay.textContent = '0.00';
+    if (horasDisplay) horasDisplay.textContent = '0.00';
     editingRecordId = null;
   });
 
   // ---------- Render Records ----------
   function renderRecordsTable(list) {
+    if (!tablaBody) return;
     tablaBody.innerHTML = '';
 
     if (!list || list.length === 0) {
@@ -384,7 +373,7 @@
         maquinariaSel.value = rec.machineId;
         tipoEl.value = rec.tipo || '';
         obsEl.value = rec.obs || '';
-        horasDisplay.textContent = rec.horas?.toFixed(2) ?? '0.00';
+        if (horasDisplay) horasDisplay.textContent = rec.horas?.toFixed(2) ?? '0.00';
         inicioM.value = ''; finM.value = ''; inicioT.value = ''; finT.value = '';
         scrollTo(0,0);
       });
@@ -402,33 +391,25 @@
   }
 
   // ---------- Search ----------
-  searchExactBtn.addEventListener('click', () => {
-    const d = searchDateExact.value;
+  searchExactBtn?.addEventListener('click', () => {
+    const d = searchDateExact?.value;
     if (!d) { alert('Selecciona una fecha'); return; }
     renderRecordsTable(records.filter(r => r.fecha === d));
   });
 
-  searchRangeBtn.addEventListener('click', () => {
-    const from = searchFrom.value; 
-    const to = searchTo.value;
+  searchRangeBtn?.addEventListener('click', () => {
+    const from = searchFrom?.value;
+    const to = searchTo?.value;
 
-    if (!from || !to) {
-      alert('Selecciona rango (desde y hasta)');
-      return;
-    }
-
-    if (from > to) {
-      alert('Rango inválido');
-      return;
-    }
-
+    if (!from || !to) { alert('Selecciona rango (desde y hasta)'); return; }
+    if (from > to) { alert('Rango inválido'); return; }
     renderRecordsTable(records.filter(r => r.fecha >= from && r.fecha <= to));
   });
 
-  clearSearchBtn.addEventListener('click', () => {
-    searchDateExact.value = '';
-    searchFrom.value = '';
-    searchTo.value = '';
+  clearSearchBtn?.addEventListener('click', () => {
+    if (searchDateExact) searchDateExact.value = '';
+    if (searchFrom) searchFrom.value = '';
+    if (searchTo) searchTo.value = '';
     renderRecordsTable(records);
   });
 
@@ -480,6 +461,7 @@
     renderMachinesList();
   }
 
-  showLock();
-  populateMachinesSelect();
+  // Show main app immediately (no PIN)
+  showApp();
+  renderAll();
 })();
