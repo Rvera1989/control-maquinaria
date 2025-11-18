@@ -465,3 +465,14 @@
   showApp();
   renderAll();
 })();
+
+// Registrar Service Worker
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker
+      .register("./service-worker.js")
+      .then(() => console.log("SW registrado correctamente"))
+      .catch((err) => console.error("Error registrando SW:", err));
+  });
+}
+
