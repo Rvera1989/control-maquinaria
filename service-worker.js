@@ -1,62 +1,80 @@
-const CACHE_NAME = "control-maquinaria-v1";
+// VERSION DEL CACHE — cámbiala cada vez que actualices
+const CACHE_VERSION = "v1.0.0";
+const CACHE_NAME = `cm-cache-${CACHE_VERSION}`;
 
-const FILES_TO_CACHE = [
-  "./",
-  "./index.html",
-  "./style.css",
-  "./script.js",
-  "./manifest.json",
+// Archivos que se guardan para que funcione offline
+const APP_SHELL = [
+  "/control-maquinaria/",
+  "/control-maquinaria/index.html",
+  "/control-maquinaria/style.css",
+  "/control-maquinaria/script.js",
+  "/control-maquinaria/manifest.json",
 
-  // ICONOS
-  "./icons/icon-192.png",
-  "./icons/icon-512.png",
-  "./icons/screenshot1.png"
+  // Íconos
+  "/control-maquinaria/icons/icon-192.png",
+  "/control-maquinaria/icons/icon-512.png",
+
+  // Opcionalmente agrega capturas si las usas
+  "/control-maquinaria/icons/screenshot1.png"
 ];
 
-// INSTALACIÓN (se ejecuta una vez)
-self.addEventListener("install", (event) => {
-  console.log("[SW] Instalando Service Worker...");
-  event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
-      console.log("[SW] Cacheando archivos...");
-      return cache.addAll(FILES_TO_CACHE);
+// INSTALACIÓN — Guarda todo en caché
+self.addEventListener("install", e => {
+  console.log("[SW] Instalando…");
+
+  e.waitUntil(
+    caches.open(CACHE_NAME).then(cache => {
+      return cache.addAll(APP_SHELL);
     })
   );
-  self.skipWaiting(); // Forzar activación inmediata
+
+  self.skipWaiting(); // Fuerza activación inmediata
 });
 
-// ACTIVACIÓN (actualiza versiones antiguas)
-self.addEventListener("activate", (event) => {
+// ACTIVACIÓN — Elimina versiones antiguas
+self.addEventListener("activate", e => {
   console.log("[SW] Activado");
-  event.waitUntil(
-    caches.keys().then((keys) =>
+
+  e.waitUntil(
+    caches.keys().then(keys =>
       Promise.all(
-        keys.map((key) => {
-          if (key !== CACHE_NAME) {
-            console.log("[SW] Borrando cache viejo:", key);
-            return caches.delete(key);
-          }
-        })
+        keys
+          .filter(key => key !== CACHE_NAME)
+          .map(key => caches.delete(key))
       )
     )
   );
-  self.clients.claim(); // Tomar control inmediato
+
+  self.clients.claim(); // Reclama control de todas las pestañas
 });
 
-// FETCH (modo: offline first)
-self.addEventListener("fetch", (event) => {
-  event.respondWith(
-    caches.match(event.request).then((response) => {
-      // Si existe en cache → devuélvelo
-      if (response) return response;
+// ESTRATEGIA DE CARGA — NETWORK FIRST con fallback al cache
+self.addEventListener("fetch", e => {
+  const req = e.request;
 
-      // Si no existe, intenta desde la red
-      return fetch(event.request).catch(() => {
-        // Si falla, devuelve index.html para rutas navegables
-        if (event.request.mode === "navigate") {
-          return caches.match("./index.html");
-        }
-      });
-    })
+  // Evitar cachear solicitudes POST o archivos de fotos
+  if (req.method !== "GET") return;
+
+  e.respondWith(
+    fetch(req)
+      .then(networkRes => {
+        // Guardar en cache las respuestas nuevas
+        caches.open(CACHE_NAME).then(cache => {
+          cache.put(req, networkRes.clone());
+        });
+        return networkRes;
+      })
+      .catch(() => {
+        // Si no hay internet → usa caché
+        return caches.match(req).then(res => {
+          // Si existe en cache → úsalo
+          if (res) return res;
+
+          // Si no existe → fallback a index.html para navegación interna
+          if (req.headers.get("accept").includes("text/html")) {
+            return caches.match("/control-maquinaria/index.html");
+          }
+        });
+      })
   );
 });
