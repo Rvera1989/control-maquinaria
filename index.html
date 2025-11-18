@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Control de Maquinaria</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="lockScreen" class="overlay">
+  <div class="card">
+    <h2>Ingresar PIN</h2>
+    <input id="pinInput" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="10" placeholder="••••" autofocus />
+    <div class="row">
+      <button id="unlockBtn">Entrar</button>
+      <button id="clearDataBtn" class="danger">Borrar datos</button>
+    </div>
+    <p class="muted">Introduce el PIN para acceder.</p>
+  </div>
+</div>
+
+<main id="app" class="hidden">
+  <header>
+    <h1>Control de Maquinaria</h1>
+    <div class="header-actions">
+      <button id="addMachineBtn">+ Agregar máquina</button>
+      <button id="exportBtn">Exportar CSV</button>
+      <button id="reportBtn">Reporte Semanal</button>
+    </div>
+  </header>
+
+  <section class="form-card">
+    <form id="registroForm">
+      <div class="grid">
+        <label>Fecha
+          <input type="date" id="fecha" required />
+        </label>
+
+        <label>Maquinaria
+          <select id="maquinaria"></select>
+        </label>
+
+        <label>Tipo de trabajo
+          <input type="text" id="tipo" required placeholder="Ej. Mantenimiento, Carga, Desalojo" />
+        </label>
+
+        <label>Observaciones
+          <input type="text" id="obs" placeholder="Detalles adicionales (opcional)" />
+        </label>
+
+        <label>Hora inicio (mañana)
+          <input type="time" id="inicioM" required />
+        </label>
+
+        <label>Hora inicio (tarde)
+          <input type="time" id="inicioT" required />
+        </label>
+
+        <label>Foto (evidencia)
+          <input type="file" id="foto" accept="image/*" capture="environment" />
+        </label>
+
+        <div class="calc">
+          <div>Horas trabajadas</div>
+          <div id="horasDisplay">0.00</div>
+        </div>
+      </div>
+
+      <div class="row">
+        <button type="submit">Guardar registro</button>
+        <button type="button" id="resetForm" class="secondary">Limpiar</button>
+      </div>
+    </form>
+  </section>
+
+  <section>
+    <h2>Registros</h2>
+    <table id="tabla">
+      <thead>
+        <tr><th>Fecha</th><th>Maquinaria</th><th>Tipo</th><th>Obs</th><th>Horas</th><th>Foto</th></tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </section>
+
+  <footer>
+    <small>Interfaz en español • Tema según el sistema</small>
+  </footer>
+</main>
+
+<!-- Modal to add machine -->
+<div id="machineModal" class="modal hidden">
+  <div class="modal-card">
+    <h3>Agregar Maquinaria</h3>
+    <input id="newMachineName" placeholder="Nombre de la maquinaria" />
+    <div class="row">
+      <button id="saveMachineBtn">Agregar</button>
+      <button id="closeMachineBtn" class="secondary">Cerrar</button>
+    </div>
+  </div>
+</div>
+
+<script src="script.js"></script>
+</body>
+</html>
