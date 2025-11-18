@@ -1,221 +1,220 @@
-// ======= Manejo de PIN / Lock screen (añadir esto AL PRINCIPIO) =======
+/* ===================================================
+   1. BLOQUE DE SEGURIDAD (PANTALLA DE PIN)
+   =================================================== */
+
 const CORRECT_PIN = "7285";
 const lockScreen = document.getElementById("lockScreen");
 const pinInput = document.getElementById("pinInput");
 const unlockBtn = document.getElementById("unlockBtn");
 const clearDataBtn = document.getElementById("clearDataBtn");
 
-// Si alguno de estos elementos no existe, evitamos errores al cargar
-if (unlockBtn) {
-  unlockBtn.addEventListener("click", () => {
-    if (pinInput && pinInput.value === CORRECT_PIN) {
-      if (lockScreen) lockScreen.classList.add("hidden");
-      const appEl = document.getElementById("app");
-      if (appEl) appEl.classList.remove("hidden");
-    } else {
-      alert("PIN incorrecto ❌");
-      if (pinInput) pinInput.value = "";
-    }
-  });
-}
+unlockBtn.addEventListener("click", () => {
+  if (pinInput.value === CORRECT_PIN) {
+    lockScreen.classList.add("hidden");
+    document.getElementById("app").classList.remove("hidden");
+  } else {
+    alert("PIN incorrecto ❌");
+    pinInput.value = "";
+  }
+});
 
-if (clearDataBtn) {
-  clearDataBtn.addEventListener("click", () => {
-    if (confirm("¿Seguro que deseas borrar TODOS los registros?")) {
-      localStorage.removeItem("registros");
-      localStorage.removeItem("maquinas");
-      alert("Datos eliminados");
-      location.reload();
-    }
-  });
-}
-// Forzar que lockScreen esté visible al inicio si existe
-if (lockScreen) lockScreen.classList.remove("hidden");
+clearDataBtn.addEventListener("click", () => {
+  if (confirm("¿Seguro que deseas borrar TODOS los registros?")) {
+    localStorage.removeItem("registros");
+    localStorage.removeItem("maquinas");
+    alert("Datos eliminados");
+    location.reload();
+  }
+});
 
-// ============================
-// SCRIPT MEJORADO: EDITAR / ELIMINAR / BUSCAR
-// ============================
-
-// Seguridad: PIN ya está manejado por tu script original.
-// Este archivo asume que ya se ocultó el lockScreen al entrar.
+/* ===================================================
+   2. DATOS LOCALES
+   =================================================== */
 
 let registros = JSON.parse(localStorage.getItem("registros") || "[]");
 let maquinas = JSON.parse(localStorage.getItem("maquinas") || "[]");
 
-// Elementos DOM (IDs que ya tienes en tu HTML)
-const registroForm = document.getElementById("registroForm");
-const fechaEl = document.getElementById("fecha");
-const maquinariaEl = document.getElementById("maquinaria");
-const tipoEl = document.getElementById("tipo");
-const obsEl = document.getElementById("obs");
-const inicioMEl = document.getElementById("inicioM");
-const inicioTEl = document.getElementById("inicioT");
-const fotoEl = document.getElementById("foto");
-const horasDisplay = document.getElementById("horasDisplay");
-const tablaBody = document.querySelector("#tabla tbody");
+const maquinariaSelect = document.getElementById("maquinaria");
+const tabla = document.querySelector("#tabla tbody");
 
-const searchDateEl = document.getElementById("searchDate");
-const searchBtn = document.getElementById("searchBtn");
-const clearSearchBtn = document.getElementById("clearSearchBtn");
-const exportBtn = document.getElementById("exportBtn");
+/* ===================================================
+   3. LISTA DE MAQUINARIA + EDICIÓN / ELIMINAR
+   =================================================== */
 
-// Variable para edición
-let editingId = null;
+function actualizarListaMaquinaria() {
+  maquinariaSelect.innerHTML = "";
 
-// Inicialización: poblar select de máquinas
-function renderMachines() {
-  maquinariaEl.innerHTML = "";
-  if (!maquinas || maquinas.length === 0) {
-    maquinas = ["Excavadora","Retroexcavadora","Volquete","Motoniveladora","Rodillo"];
-    localStorage.setItem("maquinas", JSON.stringify(maquinas));
-  }
-  maquinas.forEach(m => {
+  maquinas.forEach((m, index) => {
     const opt = document.createElement("option");
-    opt.value = m;
+    opt.value = index;
     opt.textContent = m;
-    maquinariaEl.appendChild(opt);
+    maquinariaSelect.appendChild(opt);
+  });
+
+  actualizarTablaMaquinas();
+}
+
+/* ===== Tabla donde se puede editar o eliminar máquinas ===== */
+
+function actualizarTablaMaquinas() {
+  const cont = document.querySelector("#listaMaquinas");
+  if (!cont) return;
+
+  cont.innerHTML = "";
+
+  maquinas.forEach((m, index) => {
+    const div = document.createElement("div");
+    div.className = "machineRow";
+    div.innerHTML = `
+      <span>${m}</span>
+      <button class="editM" data-id="${index}">✏️</button>
+      <button class="delM" data-id="${index}">🗑️</button>
+    `;
+    cont.appendChild(div);
+  });
+
+  document.querySelectorAll(".editM").forEach(btn => {
+    btn.addEventListener("click", () => editarMaquina(btn.dataset.id));
+  });
+
+  document.querySelectorAll(".delM").forEach(btn => {
+    btn.addEventListener("click", () => eliminarMaquina(btn.dataset.id));
   });
 }
-renderMachines();
 
-// Mostrar horas calculadas
-function calcHorasValue(m, t) {
-  if (!m || !t) return 0;
-  const [mh, mm] = m.split(":").map(Number);
-  const [th, tm] = t.split(":").map(Number);
-  let diff = ((th*60 + tm) - (mh*60 + mm))/60 - 1;
-  return diff > 0 ? +diff.toFixed(2) : 0;
+function editarMaquina(id) {
+  const nuevo = prompt("Nuevo nombre de la maquinaria:", maquinas[id]);
+  if (!nuevo) return;
+
+  maquinas[id] = nuevo.trim();
+  localStorage.setItem("maquinas", JSON.stringify(maquinas));
+  actualizarListaMaquinaria();
 }
+
+function eliminarMaquina(id) {
+  if (!confirm("¿Eliminar esta maquinaria?")) return;
+
+  maquinas.splice(id, 1);
+  localStorage.setItem("maquinas", JSON.stringify(maquinas));
+  actualizarListaMaquinaria();
+}
+
+actualizarListaMaquinaria();
+
+/* ===================================================
+   4. CÁLCULO DE HORAS
+   =================================================== */
+
+function calcularHoras() {
+  const inicioM = document.getElementById("inicioM").value;
+  const inicioT = document.getElementById("inicioT").value;
+
+  if (!inicioM || !inicioT) return 0;
+
+  const hM = parseFloat(inicioM.replace(":", ".")) || 0;
+  const hT = parseFloat(inicioT.replace(":", ".")) || 0;
+
+  let horas = (hT - hM) - 1;
+  return horas > 0 ? horas : 0;
+}
+
 function mostrarHoras() {
-  horasDisplay.textContent = calcHorasValue(inicioMEl.value, inicioTEl.value).toFixed(2);
+  document.getElementById("horasDisplay").innerText = calcularHoras().toFixed(2);
 }
-inicioMEl.addEventListener("change", mostrarHoras);
-inicioTEl.addEventListener("change", mostrarHoras);
 
-// Guardar / actualizar registro
-registroForm.addEventListener("submit", function(e) {
+document.getElementById("inicioM").addEventListener("change", mostrarHoras);
+document.getElementById("inicioT").addEventListener("change", mostrarHoras);
+
+/* ===================================================
+   5. GUARDAR REGISTRO + FOTO
+   =================================================== */
+
+document.getElementById("registroForm").addEventListener("submit", (e) => {
   e.preventDefault();
 
-  const file = fotoEl.files[0];
   const reader = new FileReader();
+  const file = document.getElementById("foto").files[0];
 
   reader.onloadend = () => {
     const nuevo = {
-      id: editingId ? editingId : Date.now(),
-      fecha: fechaEl.value || new Date().toISOString().slice(0,10),
-      maquinaria: maquinariaEl.value,
-      tipo: tipoEl.value,
-      obs: obsEl.value,
-      inicioM: inicioMEl.value,
-      inicioT: inicioTEl.value,
-      horas: calcHorasValue(inicioMEl.value, inicioTEl.value),
+      fecha: document.getElementById("fecha").value,
+      maquina: maquinas[maquinariaSelect.value],
+      tipo: document.getElementById("tipo").value,
+      obs: document.getElementById("obs").value,
+      horas: calcularHoras(),
       foto: file ? reader.result : ""
     };
 
-    if (editingId) {
-      registros = registros.map(r => r.id === editingId ? nuevo : r);
-      editingId = null;
-    } else {
-      registros.push(nuevo);
-    }
-
+    registros.push(nuevo);
     localStorage.setItem("registros", JSON.stringify(registros));
-    registroForm.reset();
-    mostrarHoras();
-    renderTabla(registros);
+    cargarTabla();
+    e.target.reset();
+    document.getElementById("horasDisplay").innerText = "0.00";
   };
 
   if (file) reader.readAsDataURL(file);
   else reader.onloadend();
 });
 
-// Render tabla con acciones
-function renderTabla(list) {
-  tablaBody.innerHTML = "";
-  
-  if (!list || list.length === 0) {
-    const tr = document.createElement("tr");
-    tr.innerHTML = `
-      <td colspan="7" style="text-align:center;color:#666">No hay registros</td>
-    `;
-    tablaBody.appendChild(tr);
-    return;
-  }
+/* ===================================================
+   6. TABLA DE REGISTROS
+   =================================================== */
 
-  list.forEach(r => {
+function cargarTabla() {
+  tabla.innerHTML = "";
+  registros.forEach(r => {
     const tr = document.createElement("tr");
-    const imgHtml = r.foto ? `<img src="${r.foto}" class="thumb" />` : "-";
-    
     tr.innerHTML = `
       <td>${r.fecha}</td>
-      <td>${r.maquinaria}</td>
+      <td>${r.maquina}</td>
       <td>${r.tipo}</td>
       <td>${r.obs}</td>
       <td>${r.horas.toFixed(2)}</td>
-      <td>${imgHtml}</td>
-      <td>
-        <button class="editBtn" data-id="${r.id}">Editar</button>
-        <button class="deleteBtn" data-id="${r.id}">Eliminar</button>
-      </td>
+      <td>${r.foto ? `<img src="${r.foto}" width="50">` : "-"}</td>
     `;
-
-    tablaBody.appendChild(tr);
-  });
-
-  // Acciones
-  document.querySelectorAll(".deleteBtn").forEach(btn => {
-    btn.addEventListener("click", () => {
-      const id = Number(btn.dataset.id);
-      if (!confirm("¿Eliminar este registro?")) return;
-      registros = registros.filter(x => x.id !== id);
-      localStorage.setItem("registros", JSON.stringify(registros));
-      renderTabla(registros);
-    });
-  });
-
-  document.querySelectorAll(".editBtn").forEach(btn => {
-    btn.addEventListener("click", () => {
-      const id = Number(btn.dataset.id);
-      const r = registros.find(x => x.id === id);
-      if (!r) return alert("Registro no encontrado");
-
-      editingId = r.id;
-      fechaEl.value = r.fecha;
-      maquinariaEl.value = r.maquinaria;
-      tipoEl.value = r.tipo;
-      obsEl.value = r.obs;
-      inicioMEl.value = r.inicioM;
-      inicioTEl.value = r.inicioT;
-      mostrarHoras();
-
-      window.scrollTo({ top: 0, behavior: "smooth" });
-    });
+    tabla.appendChild(tr);
   });
 }
+cargarTabla();
 
-// Inicial render
-renderTabla(registros);
+/* ===================================================
+   7. MODAL AGREGAR MAQUINA
+   =================================================== */
 
-// BUSCAR POR FECHA
-searchBtn.addEventListener("click", () => {
-  const fecha = searchDateEl.value;
-  if (!fecha) return renderTabla(registros);
-  const filtered = registros.filter(r => r.fecha === fecha);
-  renderTabla(filtered);
+const addMachineBtn = document.getElementById("addMachineBtn");
+const machineModal = document.getElementById("machineModal");
+const saveMachineBtn = document.getElementById("saveMachineBtn");
+const closeMachineBtn = document.getElementById("closeMachineBtn");
+
+addMachineBtn.addEventListener("click", () => {
+  machineModal.classList.remove("hidden");
 });
 
-clearSearchBtn.addEventListener("click", () => {
-  searchDateEl.value = "";
-  renderTabla(registros);
+closeMachineBtn.addEventListener("click", () => {
+  machineModal.classList.add("hidden");
 });
 
-// EXPORTAR CSV
-exportBtn.addEventListener("click", () => {
-  if (!registros.length) return alert("No hay registros para exportar.");
-  let csv = "Fecha,Maquinaria,Tipo,Obs,Inicio Mañana,Inicio Tarde,Horas,Foto\n";
-  
+saveMachineBtn.addEventListener("click", () => {
+  const input = document.getElementById("newMachineName");
+  if (input.value.trim()) {
+    maquinas.push(input.value.trim());
+    localStorage.setItem("maquinas", JSON.stringify(maquinas));
+    actualizarListaMaquinaria();
+    input.value = "";
+    machineModal.classList.add("hidden");
+  } else {
+    alert("Ingresa un nombre válido.");
+  }
+});
+
+/* ===================================================
+   8. REPORTES
+   =================================================== */
+
+document.getElementById("exportBtn").addEventListener("click", () => {
+  let csv = "Fecha,Maquina,Tipo,Obs,Horas\n";
   registros.forEach(r => {
-    csv += `${r.fecha},${r.maquinaria},${r.tipo},${r.obs},${r.inicioM},${r.inicioT},${r.horas},${r.foto ? "incluida" : ""}\n`;
+    csv += `${r.fecha},${r.maquina},${r.tipo},${r.obs},${r.horas.toFixed(2)}\n`;
   });
 
   const blob = new Blob([csv], { type: "text/csv" });
@@ -224,4 +223,19 @@ exportBtn.addEventListener("click", () => {
   a.href = url;
   a.download = "reporte_maquinaria.csv";
   a.click();
+});
+
+document.getElementById("reportBtn").addEventListener("click", () => {
+  let msg = "Horas semanales por máquina:\n\n";
+  let mapa = {};
+
+  registros.forEach(r => {
+    mapa[r.maquina] = (mapa[r.maquina] || 0) + r.horas;
+  });
+
+  Object.entries(mapa).forEach(([maq, hrs]) => {
+    msg += `${maq}: ${hrs.toFixed(2)} hrs\n`;
+  });
+
+  alert(msg);
 });
