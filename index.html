@@ -74,15 +74,31 @@
   </section>
 
   <section>
-    <h2>Registros</h2>
-    <table id="tabla">
-      <thead>
-        <tr><th>Fecha</th><th>Maquinaria</th><th>Tipo</th><th>Obs</th><th>Horas</th><th>Foto</th></tr>
-      </thead>
-      <tbody></tbody>
-    </table>
-  </section>
+  <h2>Registros</h2>
 
+  <!-- BUSCADOR POR FECHA -->
+  <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;">
+    <input type="date" id="searchDate" />
+    <button id="searchBtn" class="secondary">Buscar</button>
+    <button id="clearSearchBtn" class="secondary">Mostrar todo</button>
+  </div>
+
+  <table id="tabla">
+    <thead>
+      <tr>
+        <th>Fecha</th>
+        <th>Maquinaria</th>
+        <th>Tipo</th>
+        <th>Obs</th>
+        <th>Horas</th>
+        <th>Foto</th>
+        <th>Acciones</th> <!-- nueva columna -->
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+</section>
+  
   <footer>
     <small>Interfaz en español • Tema según el sistema</small>
   </footer>
