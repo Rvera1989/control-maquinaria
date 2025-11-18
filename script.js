@@ -139,6 +139,9 @@ const machineModal = document.getElementById("machineModal");
 const saveMachineBtn = document.getElementById("saveMachineBtn");
 const closeMachineBtn = document.getElementById("closeMachineBtn");
 
+// Garantizar que el modal SIEMPRE inicie oculto
+machineModal.classList.add("hidden");
+
 addMachineBtn.addEventListener("click", () => {
   machineModal.classList.remove("hidden");
 });
