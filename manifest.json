@@ -1,20 +1,35 @@
 {
   "name": "Control de Maquinaria",
   "short_name": "Maquinaria",
-  "start_url": "./index.html",
+  "description": "Aplicación para registrar, controlar y exportar horas de trabajo de maquinarias.",
+  "start_url": "/",
+  "scope": "/",
   "display": "standalone",
+  "orientation": "portrait",
+  "theme_color": "#1a73e8",
   "background_color": "#ffffff",
-  "theme_color": "#004aad",
+
   "icons": [
-    {
-      "src": "icon-192.png",
+       {
+      "src": "icons/icon-192.png",
       "sizes": "192x192",
       "type": "image/png"
     },
     {
-      "src": "icon-512.png",
+      "src": "icons/icon-512.png",
       "sizes": "512x512",
       "type": "image/png"
     }
-  ]
+  ],
+
+  "screenshots": [
+    {
+      "src": "icons/screenshot1.png",
+      "sizes": "1080x1920",
+      "type": "image/png",
+      "label": "Pantalla principal"
+    }
+  ],
+
+  "prefer_related_applications": false
 }
