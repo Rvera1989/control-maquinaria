@@ -117,3 +117,10 @@ table th, table td {
   opacity: 0 !important;
   pointer-events: none !important;
 }
+#lockScreen {
+  z-index: 9999;
+}
+
+#machineModal {
+  z-index: 9998;
+}
